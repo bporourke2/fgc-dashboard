@@ -32,6 +32,22 @@ This `.env` is only for the dashboard. It is **not** the claimer's `.env`, and t
 - **Bind mount instead of a named volume:** in `docker-compose.yml`, replace `fgc_data:/fgc/data:ro` with the claimer's data folder, e.g. `/path/to/fgc/data:/fgc/data:ro`. Then remove the `volumes:` block at the bottom.
 - **Same compose file as the claimer:** copy the `dashboard` and `socket-proxy` services (and the `docker-api` network) into FGC-R's `docker-compose.yml`. Drop the `external` volume definition, since the services then share `fgc_data` directly.
 
+To build the image yourself instead of pulling it: `docker build -t ghcr.io/bporourke2/fgc-dashboard:latest .`, then `docker compose up -d`.
+
+### Portainer
+
+1. In **Volumes**, find the claimer's data volume. It ends in `fgc_data` and is prefixed with the claimer's stack name, e.g. `fgc_fgc_data`.
+2. Go to **Stacks → Add stack**, choose **Repository**, and fill in:
+   - URL: `https://github.com/bporourke2/fgc-dashboard`
+   - Reference: `refs/heads/main`
+   - Compose path: `docker-compose.yml`
+
+   Or choose **Web editor** and paste [`docker-compose.yml`](docker-compose.yml).
+3. Under **Environment variables**, set `FGC_VOLUME` to the volume from step 1. Optionally set `FGC_CONTAINER`, `DASHBOARD_PORT`, `DASHBOARD_USER` and `DASHBOARD_PASS` (see [`.env.example`](.env.example)).
+4. Click **Deploy the stack** and open `http://<host>:8080`.
+
+This needs a standalone Docker environment, not Swarm: Swarm ignores `container_name`, so the dashboard can't find the claimer by name.
+
 ## How it gets its information
 
 | What | Where it comes from |
