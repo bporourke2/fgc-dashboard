@@ -11,6 +11,10 @@ A small, free and open-source **web dashboard for [Free-Games-Claimer-Remaster](
 It is **read-only**: it never changes the claimer's data and cannot start or stop anything.
 It has **zero npm dependencies** (Node 24 built-ins only) and loads nothing from CDNs, so it works fully offline on your LAN.
 
+If you find it useful, you can support the project:
+
+<a href="https://www.buymeacoffee.com/bporourke2"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=bporourke2&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" height="50"></a>
+
 ## Install (add-on for an existing FGC-R install)
 
 The dashboard is an **add-on**. It doesn't run the claimer; it sits next to your existing FGC-R container and reads its data folder (`/fgc/data`, which holds `fgc.db`) read-only.
