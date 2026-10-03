@@ -33,6 +33,20 @@ export function maskAccount(user) {
   return u;
 }
 
+// FGC-R records Prime Gaming's redemption store in lowercase ("gog", "epic games", "legacy games").
+const STORE_NAMES = { gog: 'GOG', 'gog.com': 'GOG', 'epic games': 'Epic Games', epic: 'Epic Games', 'legacy games': 'Legacy Games',
+  'microsoft store': 'Microsoft Store', xbox: 'Xbox', steam: 'Steam', ubisoft: 'Ubisoft', 'ubisoft connect': 'Ubisoft Connect',
+  'ea app': 'EA app', origin: 'Origin', 'amazon games': 'Amazon Games', 'battle.net': 'Battle.net' };
+
+export function prettyStoreName(name) {
+  if (!name) return null;
+  const n = String(name).trim();
+  const known = STORE_NAMES[n.toLowerCase()];
+  if (known) return known;
+  // Only re-case all-lowercase values; leave anything with deliberate casing alone.
+  return n === n.toLowerCase() ? n.replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase()) : n;
+}
+
 function parseExtra(extra) {
   if (!extra) return null;
   try {
@@ -90,7 +104,7 @@ export class GamesDb {
             status: r.status ?? 'unknown',
             group: statusGroup(r.status),
             code: r.code || null,
-            externalStore: extra?.external_store ?? extra?.store ?? null,
+            externalStore: prettyStoreName(extra?.external_store ?? extra?.store ?? null),
             createdAt: created,
             updatedAt: updated,
             // When the outcome was recorded: rows are created first and updated with the result.

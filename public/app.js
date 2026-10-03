@@ -108,7 +108,7 @@ function renderOverview() {
     const c = status.container;
     const tone = !c.running ? 'critical' : c.health === 'unhealthy' ? 'critical' : c.health === 'starting' ? 'warning' : 'good';
     const label = !c.running ? c.state : c.health ? c.health : 'running';
-    pill.innerHTML = `<span class="dot ${tone}"></span>${esc(c.name)} · ${esc(label)}${c.version ? ` · v${esc(c.version)}` : ''}`;
+    pill.innerHTML = `<span class="dot ${tone}"></span>${esc(c.name)} · ${esc(label)}${c.version ? ` · v${esc(c.version.replace(/^v/i, ''))}` : ''}`;
     pill.title = [c.image, c.commit && `commit ${c.commit}`, c.branch].filter(Boolean).join(' · ');
     pill.hidden = false;
   } else {
@@ -335,13 +335,13 @@ async function loadGames() {
     body.innerHTML = data.rows.map((g) => {
       const title = g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(g.title)}</a>` : esc(g.title);
       const ext = g.externalStore ? `<span class="ext">Redeem on ${esc(g.externalStore)}</span>` : '';
-      const code = g.code ? `<button type="button" class="code-btn" data-code="${esc(g.code)}">Show code</button>` : g.hasCode ? '<span class="ext">Code hidden (SHOW_CODES=false)</span>' : '';
+      const code = g.code ? `<button type="button" class="code-btn" data-code="${esc(g.code)}">Show code</button>` : g.hasCode ? '<span class="ext" title="Set SHOW_CODES=true on the dashboard to reveal codes">Code hidden</span>' : '';
       return `<tr>
-        <td class="title">${title}${ext}${code}</td>
-        <td>${esc(g.storeLabel)}</td>
+        <td class="title">${title}<span class="ext show-sm">${esc(g.storeLabel)} · ${esc(fmt(g.at, dtDate))}</span>${ext}${code}</td>
+        <td class="hide-sm">${esc(g.storeLabel)}</td>
         <td class="hide-sm">${esc(g.user)}</td>
         <td>${chip(g)}</td>
-        <td class="date" title="${esc(g.at ? new Date(g.at).toLocaleString() : '')}">${esc(fmt(g.at, dtDate))}</td>
+        <td class="date hide-sm" title="${esc(g.at ? new Date(g.at).toLocaleString() : '')}">${esc(fmt(g.at, dtDate))}</td>
       </tr>`;
     }).join('');
   }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { maskAccount, normalizeTimestamp, statusGroup } from '../src/db.js';
+import { maskAccount, normalizeTimestamp, prettyStoreName, statusGroup } from '../src/db.js';
 import { demuxLogs, parseDockerHost, parseRuns, summarizeRuns } from '../src/docker.js';
 
 test('statusGroup maps FGC-R statuses', () => {
@@ -69,4 +69,15 @@ test('parseRuns finds start/end pairs and strips ANSI', () => {
   const stale = summarizeRuns(runs, Date.parse('2026-10-04T08:00:00Z'));
   assert.equal(stale.inProgress, false);
   assert.equal(stale.history[0].aborted, true);
+});
+
+test('prettyStoreName fixes FGC-R lowercase redemption stores', () => {
+  assert.equal(prettyStoreName('gog'), 'GOG');
+  assert.equal(prettyStoreName('epic games'), 'Epic Games');
+  assert.equal(prettyStoreName('legacy games'), 'Legacy Games');
+  assert.equal(prettyStoreName('microsoft store'), 'Microsoft Store');
+  assert.equal(prettyStoreName('some new store'), 'Some New Store');
+  assert.equal(prettyStoreName('itch.io'), 'Itch.io');
+  assert.equal(prettyStoreName('IndieGala'), 'IndieGala');
+  assert.equal(prettyStoreName(null), null);
 });

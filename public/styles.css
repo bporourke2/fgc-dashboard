@@ -93,7 +93,13 @@ button, input, select { font: inherit; color: inherit; }
   background: var(--surface); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 5;
 }
-.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; }
+@media (max-width: 560px) {
+  .topbar { flex-wrap: wrap; row-gap: 8px; }
+  .brand .sub { display: none; }
+  .topbar-right { flex: 1 1 100%; justify-content: space-between; gap: 8px; }
+  #updated { display: none; }
+}
 .brand h1 { font-size: 1.05rem; }
 .brand .sub { margin: 0; font-size: 0.78rem; color: var(--muted); }
 .topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
@@ -119,7 +125,7 @@ main {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 18px; box-shadow: var(--shadow); min-width: 0;
 }
-.card-head, .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.card-head, .section-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 12px; }
 .banner {
   border: 1px solid var(--border); border-left: 4px solid var(--warning); background: var(--surface);
   border-radius: 8px; padding: 10px 14px; font-size: 0.9rem;
@@ -242,7 +248,15 @@ table.games { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .games .code { font-family: var(--mono); font-size: 0.8rem; }
 .code-btn { border: 1px dashed var(--border); background: none; border-radius: 6px; padding: 0 6px; cursor: pointer; font-size: 0.75rem; color: var(--text-2); margin-left: 6px; }
 .empty { text-align: center; padding: 28px 8px; color: var(--muted); }
-@media (max-width: 640px) { .hide-sm { display: none; } }
+.show-sm { display: none !important; }
+@media (max-width: 640px) {
+  .hide-sm { display: none; }
+  .show-sm { display: block !important; }
+  .games td.title { min-width: 0; }
+  .games .chip { white-space: normal; }
+  .topbar-right { justify-content: flex-start; }
+  #theme-toggle { margin-left: auto; }
+}
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .pager > div { display: flex; align-items: center; gap: 8px; }
 .btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); cursor: pointer; }
@@ -250,11 +264,12 @@ table.games { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 
 /* ---------- runs & screenshots ---------- */
 .runs-list { list-style: none; margin: 0; padding: 0; }
-.runs-list li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.runs-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .runs-list li:last-child { border-bottom: 0; }
 .runs-list .stores { color: var(--muted); font-size: 0.82rem; }
 .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-.shot { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-2); display: flex; flex-direction: column; }
+.shot { color: inherit; text-decoration: none; transition: border-color 0.15s; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-2); display: flex; flex-direction: column; }
+.shot:hover { border-color: var(--accent); text-decoration: none; }
 .shot img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: top; background: var(--surface); display: block; }
 .shot .cap { padding: 6px 8px; font-size: 0.78rem; overflow-wrap: anywhere; }
 
