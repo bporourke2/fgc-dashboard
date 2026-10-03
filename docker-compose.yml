@@ -6,11 +6,13 @@
 #    (FGC-R's compose file in a folder named "fgc" creates "fgc_fgc_data")
 # 2. Start the dashboard:              FGC_VOLUME=fgc_fgc_data docker compose up -d
 #    Variables can also be set in a .env file next to this file (see .env.example).
+#    Portainer: paste this file into Stacks > Add stack > Web editor (or use the Git repository option)
+#    and set FGC_VOLUME under "Environment variables". The image is pulled, never built.
 #    Bind mount instead of a volume? Replace "fgc_data:/fgc/data:ro" with e.g. /path/to/fgc/data:/fgc/data:ro
 
 services:
   dashboard:
-    image: ghcr.io/${DASHBOARD_OWNER:-bporourke2}/fgc-dashboard:latest
+    image: ghcr.io/bporourke2/fgc-dashboard:latest
     container_name: fgc-dashboard
     restart: unless-stopped
     ports:
