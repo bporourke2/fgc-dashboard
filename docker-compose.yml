@@ -1,14 +1,14 @@
 # FGC Dashboard: an add-on for an existing Free-Games-Claimer-Remaster (FGC-R) install.
-# It does not run the claimer. It reads the claimer's data volume (read-only) and,
+# It does not run the claimer. It reads the claimer's data folder (read-only) and,
 # through a read-only Docker socket proxy, the claimer container's state and logs.
 #
-# 1. Find the claimer's data volume:   docker volume ls | grep fgc_data
-#    (FGC-R's compose file in a folder named "fgc" creates "fgc_fgc_data")
-# 2. Start the dashboard:              FGC_VOLUME=fgc_fgc_data docker compose up -d
-#    Variables can also be set in a .env file next to this file (see .env.example).
-#    Portainer: paste this file into Stacks > Add stack > Web editor (or use the Git repository option)
-#    and set FGC_VOLUME under "Environment variables". The image is pulled, never built.
-#    Bind mount instead of a volume? Replace "fgc_data:/fgc/data:ro" with e.g. /path/to/fgc/data:/fgc/data:ro
+# Set FGC_DATA to the host folder that the claimer mounts at /fgc/data:
+#   - Bind mount (e.g. "./data:/fgc/data" in the claimer's compose):  FGC_DATA=/opt/stacks/fgc/data
+#   - Named volume (e.g. "fgc_data:/fgc/data"):  FGC_DATA=/var/lib/docker/volumes/<volume name>/_data
+#     (find the name with: docker volume ls | grep fgc_data, e.g. fgc_fgc_data)
+# Then: docker compose up -d   (variables can go in a .env file next to this file, see .env.example)
+# Portainer: paste this file into Stacks > Add stack > Web editor (or use the Git repository option)
+# and set FGC_DATA under "Environment variables". The image is pulled, never built.
 
 services:
   dashboard:
@@ -24,7 +24,7 @@ services:
       BASIC_AUTH_PASS: ${DASHBOARD_PASS:-}
       SHOW_CODES: ${DASHBOARD_SHOW_CODES:-false}
     volumes:
-      - fgc_data:/fgc/data:ro
+      - ${FGC_DATA:-/var/lib/docker/volumes/fgc_fgc_data/_data}:/fgc/data:ro
       # Optional: the claimer's .env. Only used for config when Docker access is off.
       # - /path/to/fgc/.env:/fgc/.env:ro
 
@@ -40,7 +40,3 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
-volumes:
-  fgc_data:
-    external: true
-    name: ${FGC_VOLUME:-fgc_fgc_data}

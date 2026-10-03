@@ -13,13 +13,21 @@ It has **zero npm dependencies** (Node 24 built-ins only) and loads nothing from
 
 ## Install (add-on for an existing FGC-R install)
 
-The dashboard is an **add-on**. It doesn't run the claimer; it sits next to your existing FGC-R container and reads its data volume, which holds `fgc.db`.
+The dashboard is an **add-on**. It doesn't run the claimer; it sits next to your existing FGC-R container and reads its data folder (`/fgc/data`, which holds `fgc.db`) read-only.
+
+**First, find the claimer's data folder on the host.** It's whatever the claimer's compose file mounts at `/fgc/data`:
+
+| Claimer's compose has | Set `FGC_DATA` to |
+|---|---|
+| A bind mount, e.g. `./data:/fgc/data` in `/opt/stacks/fgc` | The absolute path: `/opt/stacks/fgc/data` |
+| A named volume, e.g. `fgc_data:/fgc/data` | `/var/lib/docker/volumes/<volume>/_data`. Find the volume with `docker volume ls \| grep fgc_data`, e.g. `/var/lib/docker/volumes/fgc_fgc_data/_data` |
+
+You can also run `docker inspect fgc-remaster --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'` and use the source path shown for `/fgc/data`.
 
 ```bash
 git clone https://github.com/bporourke2/fgc-dashboard && cd fgc-dashboard
 cp .env.example .env
-docker volume ls | grep fgc_data      # find the claimer's data volume, e.g. fgc_fgc_data
-# set FGC_VOLUME (and FGC_CONTAINER if your claimer isn't named fgc-remaster) in .env
+# set FGC_DATA (and FGC_CONTAINER if your claimer isn't named fgc-remaster) in .env
 docker compose up -d
 ```
 
@@ -27,23 +35,20 @@ Open <http://localhost:8080>.
 
 This `.env` is only for the dashboard. It is **not** the claimer's `.env`, and the dashboard never needs your store credentials.
 
-**Other setups:**
-
-- **Bind mount instead of a named volume:** in `docker-compose.yml`, replace `fgc_data:/fgc/data:ro` with the claimer's data folder, e.g. `/path/to/fgc/data:/fgc/data:ro`. Then remove the `volumes:` block at the bottom.
-- **Same compose file as the claimer:** copy the `dashboard` and `socket-proxy` services into FGC-R's `docker-compose.yml`. Drop the `external` volume definition, since the services then share `fgc_data` directly.
+**Same compose file as the claimer:** you can instead copy the `dashboard` and `socket-proxy` services into FGC-R's `docker-compose.yml`. Mount the same source the claimer uses, read-only, e.g. `./data:/fgc/data:ro` or `fgc_data:/fgc/data:ro`.
 
 To build the image yourself instead of pulling it: `docker build -t ghcr.io/bporourke2/fgc-dashboard:latest .`, then `docker compose up -d`.
 
 ### Portainer
 
-1. In **Volumes**, find the claimer's data volume. It ends in `fgc_data` and is prefixed with the claimer's stack name, e.g. `fgc_fgc_data`.
+1. Find the claimer's data folder (see the table above), e.g. `/opt/stacks/fgc/data`.
 2. Go to **Stacks → Add stack**, choose **Repository**, and fill in:
    - URL: `https://github.com/bporourke2/fgc-dashboard`
    - Reference: `refs/heads/main`
    - Compose path: `docker-compose.yml`
 
    Or choose **Web editor** and paste [`docker-compose.yml`](docker-compose.yml).
-3. Under **Environment variables**, set `FGC_VOLUME` to the volume from step 1. Optionally set `FGC_CONTAINER`, `DASHBOARD_PORT`, `DASHBOARD_USER` and `DASHBOARD_PASS` (see [`.env.example`](.env.example)).
+3. Under **Environment variables**, set `FGC_DATA` to the folder from step 1. Optionally set `FGC_CONTAINER`, `DASHBOARD_PORT`, `DASHBOARD_USER` and `DASHBOARD_PASS` (see [`.env.example`](.env.example)).
 4. Click **Deploy the stack** and open `http://<host>:8080`.
 
 This needs a standalone Docker environment, not Swarm: Swarm ignores `container_name`, so the dashboard can't find the claimer by name.
@@ -73,7 +78,7 @@ Avoid mounting `/var/run/docker.sock` into the dashboard directly. That gives it
 
 ## Configuration
 
-These are the dashboard container's environment variables. `docker-compose.yml` already sets the important ones from your `.env` (`FGC_CONTAINER`, `DASHBOARD_USER`, `DASHBOARD_PASS`, `DASHBOARD_SHOW_CODES`, `DASHBOARD_PORT`, `FGC_VOLUME`). All are optional.
+These are the dashboard container's environment variables. `docker-compose.yml` already sets the important ones from your `.env` (`FGC_CONTAINER`, `DASHBOARD_USER`, `DASHBOARD_PASS`, `DASHBOARD_SHOW_CODES`, `DASHBOARD_PORT`, `FGC_DATA`). All are optional.
 
 | Variable | Default | Description |
 |---|---|---|
