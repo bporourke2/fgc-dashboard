@@ -10,7 +10,7 @@
 
 services:
   dashboard:
-    image: ghcr.io/${DASHBOARD_OWNER:-your-github-user}/fgc-dashboard:latest
+    image: ghcr.io/${DASHBOARD_OWNER:-bporourke2}/fgc-dashboard:latest
     build: .
     container_name: fgc-dashboard
     restart: unless-stopped

@@ -16,7 +16,7 @@ It has **zero npm dependencies** (Node 24 built-ins only) and loads nothing from
 The dashboard is an **add-on**. It doesn't run the claimer; it sits next to your existing FGC-R container and reads its data volume, which holds `fgc.db`.
 
 ```bash
-git clone https://github.com/<you>/fgc-dashboard && cd fgc-dashboard
+git clone https://github.com/bporourke2/fgc-dashboard && cd fgc-dashboard
 cp .env.example .env
 docker volume ls | grep fgc_data      # find the claimer's data volume, e.g. fgc_fgc_data
 # set FGC_VOLUME (and FGC_CONTAINER if your claimer isn't named fgc-remaster) in .env
