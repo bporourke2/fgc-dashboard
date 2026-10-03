@@ -25,9 +25,9 @@ services:
       - fgc_data:/fgc/data:ro
       # Optional: the claimer's .env. Only used for config when Docker access is off.
       # - /path/to/fgc/.env:/fgc/.env:ro
-    networks: [default, docker-api]
 
   # Exposes only read-only container endpoints (inspect + logs). No POST, no exec, no images.
+  # Its port is not published; only containers in this stack can reach it.
   socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     container_name: fgc-socket-proxy
@@ -37,11 +37,6 @@ services:
       POST: 0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks: [docker-api]
-
-networks:
-  docker-api:
-    internal: true
 
 volumes:
   fgc_data:

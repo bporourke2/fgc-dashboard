@@ -30,7 +30,7 @@ This `.env` is only for the dashboard. It is **not** the claimer's `.env`, and t
 **Other setups:**
 
 - **Bind mount instead of a named volume:** in `docker-compose.yml`, replace `fgc_data:/fgc/data:ro` with the claimer's data folder, e.g. `/path/to/fgc/data:/fgc/data:ro`. Then remove the `volumes:` block at the bottom.
-- **Same compose file as the claimer:** copy the `dashboard` and `socket-proxy` services (and the `docker-api` network) into FGC-R's `docker-compose.yml`. Drop the `external` volume definition, since the services then share `fgc_data` directly.
+- **Same compose file as the claimer:** copy the `dashboard` and `socket-proxy` services into FGC-R's `docker-compose.yml`. Drop the `external` volume definition, since the services then share `fgc_data` directly.
 
 To build the image yourself instead of pulling it: `docker build -t ghcr.io/bporourke2/fgc-dashboard:latest .`, then `docker compose up -d`.
 
@@ -61,7 +61,7 @@ This needs a standalone Docker environment, not Swarm: Swarm ignores `container_
 ### Docker access is optional (but recommended)
 
 FGC-R doesn't write its schedule or run history to disk. Exact timing therefore needs the container's start time and its logs.
-The compose file uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with only `CONTAINERS=1`. That allows read-only `inspect` and `logs` calls, and the proxy runs on an internal network.
+The compose file uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with only `CONTAINERS=1`. That allows read-only `inspect` and `logs` calls. Its port is never published, so only containers in the same stack can reach it.
 
 Without Docker access (`DOCKER_HOST` unset):
 
