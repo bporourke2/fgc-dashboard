@@ -1,0 +1,50 @@
+# FGC Dashboard: an add-on for an existing Free-Games-Claimer-Remaster (FGC-R) install.
+# It does not run the claimer. It reads the claimer's data volume (read-only) and,
+# through a read-only Docker socket proxy, the claimer container's state and logs.
+#
+# 1. Find the claimer's data volume:   docker volume ls | grep fgc_data
+#    (FGC-R's compose file in a folder named "fgc" creates "fgc_fgc_data")
+# 2. Start the dashboard:              FGC_VOLUME=fgc_fgc_data docker compose up -d
+#    Variables can also be set in a .env file next to this file (see .env.example).
+#    Bind mount instead of a volume? Replace "fgc_data:/fgc/data:ro" with e.g. /path/to/fgc/data:/fgc/data:ro
+
+services:
+  dashboard:
+    image: ghcr.io/${DASHBOARD_OWNER:-your-github-user}/fgc-dashboard:latest
+    build: .
+    container_name: fgc-dashboard
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-8080}:8080"
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      FGC_CONTAINER: ${FGC_CONTAINER:-fgc-remaster}
+      BASIC_AUTH_USER: ${DASHBOARD_USER:-}
+      BASIC_AUTH_PASS: ${DASHBOARD_PASS:-}
+      SHOW_CODES: ${DASHBOARD_SHOW_CODES:-false}
+    volumes:
+      - fgc_data:/fgc/data:ro
+      # Optional: the claimer's .env. Only used for config when Docker access is off.
+      # - /path/to/fgc/.env:/fgc/.env:ro
+    networks: [default, docker-api]
+
+  # Exposes only read-only container endpoints (inspect + logs). No POST, no exec, no images.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: fgc-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [docker-api]
+
+networks:
+  docker-api:
+    internal: true
+
+volumes:
+  fgc_data:
+    external: true
+    name: ${FGC_VOLUME:-fgc_fgc_data}

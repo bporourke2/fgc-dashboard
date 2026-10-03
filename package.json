@@ -1,0 +1,17 @@
+{
+  "name": "fgc-dashboard",
+  "version": "0.1.0",
+  "description": "Read-only web dashboard for Free-Games-Claimer-Remaster: next run, configured services and claimed games.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "demo": "node scripts/make-fixture.js demo-data && FGC_DATA_DIR=demo-data FGC_ENV_FILE=demo-data/config.env node src/server.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "keywords": ["free-games-claimer", "dashboard", "docker", "self-hosted", "epic-games", "gog", "prime-gaming"]
+}

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FGC Dashboard</title>
+  <meta name="description" content="Status dashboard for Free-Games-Claimer-Remaster">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="theme.js"></script>
+  <script src="app.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="favicon.svg" alt="" width="28" height="28">
+      <div>
+        <h1>FGC Dashboard</h1>
+        <p class="sub">Free-Games-Claimer-Remaster</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="container-pill" class="pill" hidden></span>
+      <span id="updated" class="muted small" aria-live="polite"></span>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle theme" title="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="banner" class="banner" hidden></div>
+
+    <section class="hero">
+      <article class="card next-run" aria-labelledby="next-run-title">
+        <div class="card-head">
+          <h2 id="next-run-title">Next run</h2>
+          <span id="next-source" class="badge" hidden></span>
+        </div>
+        <div id="running" class="running" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Claiming run in progress<span id="running-since"></span></span>
+        </div>
+        <div id="countdown" class="countdown">—</div>
+        <div id="next-abs" class="muted"></div>
+        <p id="schedule-desc" class="schedule-desc"></p>
+        <div class="run-meta">
+          <div><span class="label">Last run</span><span id="last-run">—</span></div>
+          <div><span class="label">Duration</span><span id="last-duration">—</span></div>
+          <div><span class="label">Container up since</span><span id="started-at">—</span></div>
+        </div>
+        <details class="upcoming">
+          <summary>Upcoming runs</summary>
+          <ol id="upcoming-list"></ol>
+        </details>
+      </article>
+
+      <div class="tiles">
+        <div class="tile"><span class="label">Games claimed</span><span id="t-claimed" class="big">—</span></div>
+        <div class="tile"><span class="label">This month</span><span id="t-month" class="big">—</span></div>
+        <div class="tile"><span class="label">Services enabled</span><span id="t-services" class="big">—</span></div>
+        <div class="tile"><span class="label">Failed</span><span id="t-failed" class="big">—</span></div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="chart-title">
+      <div class="card-head">
+        <h2 id="chart-title">Games claimed per month</h2>
+        <span class="muted small">last 12 months</span>
+      </div>
+      <div id="chart" class="chart"></div>
+    </section>
+
+    <section aria-labelledby="services-title">
+      <div class="section-head">
+        <h2 id="services-title">Services</h2>
+        <span id="services-meta" class="muted small"></span>
+      </div>
+      <div id="services" class="services"></div>
+    </section>
+
+    <section class="card" aria-labelledby="tabs-title">
+      <h2 id="tabs-title" class="visually-hidden">Details</h2>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="games" id="tab-games">Games</button>
+        <button role="tab" aria-selected="false" data-tab="runs" id="tab-runs">Run history</button>
+        <button role="tab" aria-selected="false" data-tab="shots" id="tab-shots">Screenshots</button>
+      </div>
+
+      <div class="tab-panel" data-panel="games" role="tabpanel" aria-labelledby="tab-games">
+        <form id="filters" class="filters" autocomplete="off">
+          <input type="search" name="q" placeholder="Search titles…" aria-label="Search titles">
+          <select name="store" aria-label="Store"><option value="">All stores</option></select>
+          <select name="group" aria-label="Status">
+            <option value="">All statuses</option>
+            <option value="claimed">Claimed</option>
+            <option value="owned">Already owned</option>
+            <option value="failed">Failed</option>
+            <option value="pending">Pending</option>
+            <option value="info">Other</option>
+          </select>
+          <select name="user" aria-label="Account"><option value="">All accounts</option></select>
+        </form>
+        <div class="table-wrap">
+          <table class="games">
+            <thead>
+              <tr>
+                <th><button type="button" data-sort="title">Title</button></th>
+                <th><button type="button" data-sort="store">Store</button></th>
+                <th class="hide-sm">Account</th>
+                <th><button type="button" data-sort="status">Status</button></th>
+                <th><button type="button" data-sort="date" aria-sort="descending">Date</button></th>
+              </tr>
+            </thead>
+            <tbody id="games-body"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span id="games-count" class="muted small"></span>
+          <div>
+            <button id="prev" type="button" class="btn">‹ Prev</button>
+            <span id="page-info" class="small"></span>
+            <button id="next" type="button" class="btn">Next ›</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-panel="runs" role="tabpanel" aria-labelledby="tab-runs" hidden>
+        <div id="runs"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="shots" role="tabpanel" aria-labelledby="tab-shots" hidden>
+        <div id="shots" class="shots"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer muted small">
+    <span>FGC Dashboard <span id="dash-version"></span> · read-only</span>
+    <a href="https://github.com/P-Adamiec/Free-Games-Claimer-Remaster" target="_blank" rel="noopener noreferrer">Free-Games-Claimer-Remaster ↗</a>
+  </footer>
+
+  <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+</body>
+</html>
