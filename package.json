@@ -1,6 +1,6 @@
 {
   "name": "fgc-dashboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read-only web dashboard for Free-Games-Claimer-Remaster: next run, configured services and claimed games.",
   "license": "MIT",
   "type": "module",
