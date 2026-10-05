@@ -2,7 +2,7 @@
 // Secret values never leave this module — only booleans and non-sensitive settings.
 import fs from 'node:fs';
 import path from 'node:path';
-import { STORES, DEFAULT_STORES, resolveStore } from './stores.js';
+import { BUILTIN_CATALOG, resolveStore } from './stores.js';
 
 /** Minimal dotenv parser: comments, `export`, single/double quotes, inline comments. */
 export function parseDotenv(text) {
@@ -56,21 +56,24 @@ const int = (v, def) => {
   return Number.isFinite(n) ? n : def;
 };
 
-/** Which stores will run, following FGC-R's STORES + deprecated *_ENABLE flags. */
-export function enabledStores(env) {
+/**
+ * Which stores will run, following FGC-R's main.py: STORES (names or aliases) or the default list.
+ * (The old *_ENABLE switches were removed in FGC-R 1.11 and are ignored here too.)
+ */
+export function enabledStores(env, catalog = BUILTIN_CATALOG) {
   const set = new Set();
   const unknown = [];
   const list = String(env.STORES ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   if (list.length) {
     for (const name of list) {
-      const id = resolveStore(name);
+      const id = resolveStore(name, catalog);
       if (id) set.add(id);
-      else unknown.push(name);
+      // 'gamerpower' is a discovery source, not a store; FGC-R ignores it with a warning.
+      else if (!/^(gamerpower|gp)$/i.test(name)) unknown.push(name);
     }
   } else {
-    DEFAULT_STORES.forEach((id) => set.add(id));
+    catalog.defaults.forEach((id) => set.add(id));
   }
-  for (const s of STORES) if (s.legacyFlag && truthy(env[s.legacyFlag])) set.add(s.id);
   return { enabled: set, unknown, explicit: list.length > 0 };
 }
 
@@ -88,9 +91,9 @@ export function parseFixedTimes(text) {
 }
 
 /** Summarise the claimer configuration without exposing secrets. */
-export function summarize(env, source) {
-  const { enabled, unknown, explicit } = enabledStores(env);
-  const stores = STORES.map((s) => ({
+export function summarize(env, source, catalog = BUILTIN_CATALOG) {
+  const { enabled, unknown, explicit } = enabledStores(env, catalog);
+  const stores = catalog.stores.map((s) => ({
     id: s.id,
     label: s.label,
     url: s.url,
@@ -100,9 +103,11 @@ export function summarize(env, source) {
     credentialsConfigured: s.cred.length === 0 ? null : s.cred.every((alts) => alts.some((k) => has(env, k))),
     otpConfigured: s.otp.some((k) => has(env, k)),
     profile: s.profile,
+    discovered: Boolean(s.discovered),
   }));
   return {
     source,
+    catalogSource: catalog.source,
     storesExplicit: explicit,
     unknownStores: unknown,
     stores,
@@ -111,6 +116,8 @@ export function summarize(env, source) {
       fixedTimes: parseFixedTimes(env.SCHEDULER_FIXED_TIMES),
       timezone: String(env.SCHEDULER_TIMEZONE ?? '').trim() || 'UTC',
       runOnStartup: env.RUN_ON_STARTUP === undefined || env.RUN_ON_STARTUP === '' ? true : truthy(env.RUN_ON_STARTUP),
+      // FGC-R 1.10+: one claiming run, then the container stops (an outside scheduler drives it).
+      runOnce: truthy(env.RUN_ONCE),
     },
     notify: {
       apprise: has(env, 'NOTIFY'),

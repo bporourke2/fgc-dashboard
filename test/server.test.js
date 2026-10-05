@@ -8,6 +8,7 @@ import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { loadConfig } from '../src/config.js';
 import { createServer } from '../src/server.js';
+import { CONFIG_PY, MAIN_PY, tarOf } from './helpers.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fgc-dash-'));
 let server;
@@ -29,10 +30,15 @@ before(async () => {
     if (req.url.startsWith('/containers/fgc-remaster/json')) {
       res.end(JSON.stringify({
         Id: 'abcdef1234567890', Name: '/fgc-remaster',
-        Config: { Image: 'ghcr.io/p-adamiec/free-games-claimer-remaster:latest', Labels: {}, Env: ['STORES=epic,gog', 'SCHEDULER_HOURS=6', 'EG_PASSWORD=topsecret', 'COMMIT=0123456789'] },
+        Config: { Image: 'ghcr.io/p-adamiec/free-games-claimer-remaster:latest', Labels: { 'org.opencontainers.image.version': 'v1.11' }, Env: ['STORES=epic,gog,hb', 'SCHEDULER_HOURS=6', 'EG_PASSWORD=topsecret', 'COMMIT=0123456789'] },
         State: { Status: 'running', Running: true, StartedAt: started, Health: { Status: 'healthy' } },
         RestartCount: 0,
       }));
+    } else if (req.url.startsWith('/containers/fgc-remaster/archive')) {
+      const file = new URL(req.url, 'http://x').searchParams.get('path');
+      const files = { '/fgc/main.py': MAIN_PY, '/fgc/src/core/config.py': CONFIG_PY };
+      if (files[file]) res.end(tarOf(path.basename(file), files[file]));
+      else { res.statusCode = 404; res.end('{"message":"no such file"}'); }
     } else if (req.url.startsWith('/containers/fgc-remaster/logs')) {
       const t = (min) => new Date(Date.parse(started) + min * 60_000).toISOString();
       res.end(`${t(0.1)} INFO 🎮 Starting claiming run… epic, gog\n${t(4)} INFO ✔ Claiming run complete.\n`);
@@ -90,6 +96,16 @@ test('services reflect container env and never leak secrets', async () => {
   assert.equal(byId.steam.enabled, false);
   assert.equal(byId.epic.counts.claimed, 5);
   assert.equal(byId.epic.profileExists, true);
+  // Store list comes from the claimer's main.py: the made-up "humble" store appears,
+  // gog (absent from that main.py) still shows, because the DB has games for it.
+  assert.equal(body.catalogSource, 'claimer v1.11');
+  assert.equal(body.catalogError, null);
+  assert.equal(byId.humble.enabled, true);
+  assert.equal(byId.humble.discovered, true);
+  assert.equal(byId.gog.label, 'GOG');
+  assert.equal(byId.gog.note, 'Not in your claimer version');
+  assert.equal(byId.gog.counts.claimed, 1);
+  assert.equal(byId.microsoft.enabled, false);
 });
 
 test('games filter, mask and hide codes', async () => {

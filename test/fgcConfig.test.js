@@ -23,14 +23,15 @@ test('envArrayToObject keeps "=" inside values', () => {
   assert.deepEqual(envArrayToObject(['A=1', 'NOTIFY=tgram://x?a=b', 'BAD']), { A: '1', NOTIFY: 'tgram://x?a=b' });
 });
 
-test('STORES defaults, aliases, unknown names and legacy flags', () => {
+test('STORES defaults, aliases and unknown names', () => {
   assert.deepEqual([...enabledStores({}).enabled], DEFAULT_STORES);
-  const r = enabledStores({ STORES: 'Epic-Games, amazon,ae,itch,bogus' });
-  assert.deepEqual([...r.enabled].sort(), ['aliexpress', 'epic', 'itchio', 'prime']);
-  assert.deepEqual(r.unknown, ['bogus']);
-  const legacy = enabledStores({ FANATICAL_ENABLE: 'true' });
-  assert.ok(legacy.enabled.has('fanatical'));
-  assert.ok(legacy.enabled.has('epic'));
+  assert.ok(enabledStores({}).enabled.has('microsoft'));
+  assert.ok(!enabledStores({}).enabled.has('fab'), 'Fab is opt-in since FGC-R 1.11');
+  const r = enabledStores({ STORES: 'Epic-Games, amazon,ae,itch,xbox,gamerpower,bogus' });
+  assert.deepEqual([...r.enabled].sort(), ['aliexpress', 'epic', 'itchio', 'microsoft', 'prime']);
+  assert.deepEqual(r.unknown, ['bogus'], 'gamerpower is a source, not an unknown store');
+  // *_ENABLE switches were removed in FGC-R 1.11.
+  assert.ok(!enabledStores({ FANATICAL_ENABLE: 'true' }).enabled.has('fanatical'));
 });
 
 test('parseFixedTimes validates and sorts', () => {
@@ -50,5 +51,9 @@ test('summarize exposes only booleans for secrets', () => {
   assert.equal(steam.credentialsConfigured, false);
   assert.equal(s.schedule.intervalHours, 0);
   assert.equal(s.schedule.runOnStartup, true);
+  assert.equal(s.schedule.runOnce, false);
+  assert.equal(summarize({ RUN_ONCE: 'true' }, 'test').schedule.runOnce, true);
+  const steam2 = summarize({ STEAM_USERNAME: 'u', PASSWORD: 'p' }, 'test').stores.find((x) => x.id === 'steam');
+  assert.equal(steam2.credentialsConfigured, true, 'Steam password falls back to PASSWORD');
   assert.equal(s.notify.apprise, true);
 });

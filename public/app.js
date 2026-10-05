@@ -95,7 +95,15 @@ function renderOverview() {
   if (status.database === 'missing') msgs.push('No <code>fgc.db</code> found in the data directory yet. Has the claimer run at least once? Check the <code>/fgc/data</code> volume mount.');
   if (status.database === 'error') { msgs.push(`Database error: ${esc(status.databaseError)}`); critical = true; }
   if (status.docker === 'error') msgs.push(`Docker API unreachable (${esc(status.dockerError)}). Schedule shown from the .env file and may be estimated.`);
-  if (status.container && !status.container.running) { msgs.push(`The claimer container <b>${esc(status.container.name)}</b> is <b>${esc(status.container.state)}</b>, so no runs will happen.`); critical = true; }
+  if (status.container && !status.container.running) {
+    if (schedule.runOnce) {
+      msgs.push(`The claimer container <b>${esc(status.container.name)}</b> is <b>${esc(status.container.state)}</b>. It runs in run-once mode, so it stops after each run until something starts it again (cron, Ofelia or a restart policy).`);
+    } else {
+      msgs.push(`The claimer container <b>${esc(status.container.name)}</b> is <b>${esc(status.container.state)}</b>, so no runs will happen.`);
+      critical = true;
+    }
+  }
+  if (services.catalogError) msgs.push(`Couldn't read the store list from the claimer (${esc(services.catalogError)}), so the dashboard's built-in list is shown. Stores added in newer claimer versions may be missing.`);
   if (status.dryRun) msgs.push('<b>DRYRUN</b> is enabled: the claimer only checks for games and does not claim them.');
   if (services.unknownStores.length) msgs.push(`Unrecognised entries in <code>STORES</code>: ${services.unknownStores.map(esc).join(', ')}`);
   if (!schedule.timezoneValid) msgs.push('<code>SCHEDULER_TIMEZONE</code> is not a valid IANA zone; showing fixed times in UTC.');
@@ -143,10 +151,13 @@ function renderOverview() {
 }
 
 function scheduleText(s) {
+  if (s.mode === 'once') {
+    return 'Run-once mode (RUN_ONCE, or no SCHEDULER_HOURS/SCHEDULER_FIXED_TIMES): the claimer runs once when the container starts, then stops. Something outside it, like cron or Ofelia, decides when it runs next.';
+  }
   const parts = [];
   if (s.intervalHours > 0) parts.push(`every ${s.intervalHours} h from container start`);
   if (s.fixedTimes.length) parts.push(`daily at ${s.fixedTimes.join(', ')} (${s.timezone})`);
-  let text = parts.length ? `Runs ${parts.join(' and ')}` : 'No recurring schedule: SCHEDULER_HOURS=0 and no SCHEDULER_FIXED_TIMES';
+  let text = `Runs ${parts.join(' and ')}`;
   text += s.runOnStartup ? '. Also runs when the container starts.' : '.';
   return text;
 }
@@ -178,7 +189,10 @@ function tick() {
   if (!o) return;
   const s = o.schedule;
   const el = $('#countdown');
-  if (o.status.container && !o.status.container.running) {
+  if (s.mode === 'once') {
+    el.textContent = 'On demand';
+    $('#next-abs').textContent = 'Run-once mode: the next run is whenever the container is started';
+  } else if (o.status.container && !o.status.container.running) {
     el.textContent = 'Stopped';
     $('#next-abs').textContent = 'The claimer container is not running';
   } else if (s.nextRun) {
@@ -266,7 +280,8 @@ function setupTooltip() {
 function renderServices(data) {
   const list = [...data.services].sort((a, b) => Number(b.enabled) - Number(a.enabled) || (b.counts.claimed - a.counts.claimed));
   const notify = [data.notify.apprise && 'Apprise', data.notify.discord && 'Discord'].filter(Boolean);
-  $('#services-meta').textContent = `Config from ${data.source} · Notifications: ${notify.length ? notify.join(' + ') : 'off'}`;
+  const storeList = data.catalogSource === 'built-in' ? 'built-in store list' : `stores read from ${data.catalogSource}`;
+  $('#services-meta').textContent = `Config from ${data.source} · ${storeList} · Notifications: ${notify.length ? notify.join(' + ') : 'off'}`;
   $('#services').innerHTML = list.map((s) => {
     const flags = [];
     if (s.enabled === true) flags.push('<span class="flag ok">✓ Enabled</span>');
@@ -276,9 +291,9 @@ function renderServices(data) {
     if (s.otpConfigured) flags.push('<span class="flag ok">✓ 2FA</span>');
     if (s.enabled && s.profileExists) flags.push('<span class="flag" title="A browser profile exists, so this store has been used">Profile</span>');
     const accounts = s.accounts?.length ? `<span class="note">${s.accounts.map(esc).join(', ')}</span>` : '';
-    return `<button type="button" class="service${s.enabled === false ? ' disabled' : ''}" data-store="${esc(s.id)}" aria-label="Show ${esc(s.label)} games">
+    return `<button type="button" class="service${s.enabled !== true ? ' disabled' : ''}" data-store="${esc(s.id)}" aria-label="Show ${esc(s.label)} games">
       <div class="service-head">
-        <div><div class="service-name">${esc(s.label)}</div>${s.note ? `<div class="note">${esc(s.note)}</div>` : accounts}</div>
+        <div><div class="service-name">${esc(s.label)}</div>${s.note ? `<div class="note">${esc(s.note)}</div>` : accounts}${s.discovered ? '<div class="note" title="This store is new to the dashboard. It was found in the claimer\'s own store list.">New in your claimer version</div>' : ''}</div>
       </div>
       <div class="service-flags">${flags.join('')}</div>
       <div class="counts">

@@ -82,6 +82,23 @@ function nextSource(next, intervalSource) {
  * @param {object} ctx    { now, startedAt?: ms (container start, exact), lastActivity?: ms (estimate) }
  */
 export function computeSchedule(sched, { now = Date.now(), startedAt = null, lastActivity = null } = {}) {
+  // FGC-R 1.10+: RUN_ONCE, or nothing scheduled at all, means one run at start-up and then exit.
+  if (sched.runOnce || (!(sched.intervalHours > 0) && !sched.fixedTimes.length)) {
+    return {
+      mode: 'once',
+      intervalHours: sched.intervalHours,
+      fixedTimes: [],
+      timezone: sched.timezone,
+      timezoneValid: isValidTimezone(sched.timezone),
+      runOnStartup: sched.runOnStartup,
+      runOnce: true,
+      nextRun: null,
+      nextRunSource: null,
+      unknownReason: null,
+      upcoming: [],
+    };
+  }
+
   let tz = sched.timezone;
   const tzValid = isValidTimezone(tz);
   if (!tzValid) tz = 'UTC';
@@ -111,10 +128,9 @@ export function computeSchedule(sched, { now = Date.now(), startedAt = null, las
     if (upcoming.length === 5) break;
   }
 
-  let mode = 'manual';
+  let mode = 'fixed';
   if (sched.intervalHours > 0 && sched.fixedTimes.length) mode = 'interval+fixed';
   else if (sched.intervalHours > 0) mode = 'interval';
-  else if (sched.fixedTimes.length) mode = 'fixed';
 
   const next = upcoming[0] ?? null;
   return {
@@ -124,6 +140,7 @@ export function computeSchedule(sched, { now = Date.now(), startedAt = null, las
     timezone: tz,
     timezoneValid: tzValid,
     runOnStartup: sched.runOnStartup,
+    runOnce: false,
     nextRun: next ? new Date(next.at).toISOString() : null,
     nextRunSource: next ? nextSource(next, sched.intervalHours > 0 ? intervalSource : 'exact') : null,
     // Interval mode without Docker and without any DB activity cannot be predicted at all.

@@ -1,6 +1,7 @@
 // Optional, read-only Docker Engine API client (direct socket or tecnativa/docker-socket-proxy).
 // Used for: container start time (exact interval schedule), health, real env, and run start/end from logs.
 import http from 'node:http';
+import { firstFileFromTar } from './discover.js';
 
 const RUN_START = /Starting claiming run/i;
 const RUN_END = /Claiming run complete/i;
@@ -133,6 +134,16 @@ export class DockerClient {
       startedAt: j.State?.StartedAt && !j.State.StartedAt.startsWith('0001') ? j.State.StartedAt : null,
       restartCount: j.RestartCount ?? 0,
     };
+  }
+
+  /** One file from the container's filesystem (GET /containers/{id}/archive returns a tar). */
+  async readFile(filePath) {
+    const body = await request(
+      this.target,
+      `/containers/${encodeURIComponent(this.container)}/archive?path=${encodeURIComponent(filePath)}`,
+      { maxBytes: 2 * 1024 * 1024 },
+    );
+    return firstFileFromTar(body);
   }
 
   /** Logs since `sinceMs` (epoch ms), with timestamps. */

@@ -72,9 +72,12 @@ test('computeSchedule: invalid timezone falls back to UTC', () => {
   assert.equal(r.nextRun, '2026-10-03T09:00:00.000Z');
 });
 
-test('computeSchedule: manual mode', () => {
-  const r = computeSchedule(sched({ intervalHours: 0 }), { now: Date.now() });
-  assert.equal(r.mode, 'manual');
-  assert.equal(r.nextRun, null);
-  assert.equal(r.unknownReason, null);
+test('computeSchedule: run-once mode (RUN_ONCE or nothing scheduled)', () => {
+  const nothing = computeSchedule(sched({ intervalHours: 0 }), { now: Date.now() });
+  assert.equal(nothing.mode, 'once');
+  assert.equal(nothing.nextRun, null);
+  assert.deepEqual(nothing.upcoming, []);
+  const flag = computeSchedule(sched({ runOnce: true, fixedTimes: [{ hour: 9, minute: 0 }] }), { now: Date.now(), startedAt: Date.now() });
+  assert.equal(flag.mode, 'once');
+  assert.equal(flag.nextRun, null);
 });

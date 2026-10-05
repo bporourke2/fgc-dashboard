@@ -3,3 +3,4 @@ demo-data/
 .env
 *.log
 .claude/
+reddit/

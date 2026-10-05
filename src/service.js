@@ -6,7 +6,8 @@ import { GamesDb, maskAccount } from './db.js';
 import { DockerClient, parseRuns, summarizeRuns } from './docker.js';
 import { envArrayToObject, readEnvFiles, summarize } from './fgcConfig.js';
 import { computeSchedule } from './schedule.js';
-import { storeById } from './stores.js';
+import { buildCatalog, parseConfigPy, parseMainPy } from './discover.js';
+import { BUILTIN_CATALOG, storeById } from './stores.js';
 
 const GROUPS = ['claimed', 'owned', 'failed', 'pending', 'info'];
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
@@ -20,6 +21,8 @@ export class DashboardService {
     this.games = new Cached(ttl, () => this.db.allGames());
     this.container = new Cached(ttl, () => this.docker.inspect());
     this.runs = new Cached(Math.max(ttl, 30_000), () => this.#loadRuns());
+    this.discovered = { key: null, at: 0, catalog: BUILTIN_CATALOG, error: null };
+    this.discovering = null;
   }
 
   async #safe(cached) {
@@ -35,12 +38,47 @@ export class DashboardService {
     return this.#safe(this.container);
   }
 
+  /**
+   * The store catalog. With Docker access it is read from the running claimer's main.py and
+   * config.py (once per container start), so stores added upstream appear without an update here.
+   * Otherwise, or if that fails, the built-in catalog is used.
+   */
+  async catalog() {
+    const c = await this.containerInfo();
+    if (!c.value) return BUILTIN_CATALOG;
+    const key = `${c.value.id}|${c.value.startedAt}`;
+    const d = this.discovered;
+    // Re-read when the container changed; retry failures every 10 minutes.
+    if (d.key === key && (!d.error || Date.now() - d.at < 600_000)) return d.catalog;
+    // Concurrent callers share one read.
+    if (this.discovering?.key === key) return this.discovering.promise;
+    const promise = this.#discover(key, c.value).finally(() => { this.discovering = null; });
+    this.discovering = { key, promise };
+    return promise;
+  }
+
+  async #discover(key, container) {
+    try {
+      const mainPy = await this.docker.readFile('/fgc/main.py');
+      const main = mainPy && parseMainPy(mainPy);
+      if (!main) throw new Error('store registry not found in /fgc/main.py');
+      let creds = {};
+      try {
+        creds = parseConfigPy((await this.docker.readFile('/fgc/src/core/config.py')) ?? '', main.aliases);
+      } catch { /* credentials fall back to the built-in catalog */ }
+      this.discovered = { key, at: Date.now(), catalog: buildCatalog(main, creds, container.labels['org.opencontainers.image.version'] || null), error: null };
+    } catch (err) {
+      this.discovered = { key, at: Date.now(), catalog: BUILTIN_CATALOG, error: err.message };
+    }
+    return this.discovered.catalog;
+  }
+
   /** Claimer env: the running container's env when Docker is available, else the mounted .env file. */
   async fgcConfig() {
-    const c = await this.containerInfo();
-    if (c.value) return summarize(envArrayToObject(c.value.env), 'container');
+    const [c, catalog] = await Promise.all([this.containerInfo(), this.catalog()]);
+    if (c.value) return summarize(envArrayToObject(c.value.env), 'container', catalog);
     const { vars, used } = readEnvFiles(this.cfg.envFiles);
-    return summarize(vars, used.length ? used.join(' + ') : 'defaults');
+    return summarize(vars, used.length ? used.join(' + ') : 'defaults', catalog);
   }
 
   async #loadRuns() {
@@ -120,7 +158,7 @@ export class DashboardService {
   }
 
   async services() {
-    const [cfg, games] = await Promise.all([this.fgcConfig(), this.gamesList()]);
+    const [cfg, games, catalog] = await Promise.all([this.fgcConfig(), this.gamesList(), this.catalog()]);
     const stats = new Map();
     for (const g of games.rows) {
       let s = stats.get(g.store);
@@ -140,17 +178,23 @@ export class DashboardService {
         accounts: [...st.accounts],
       };
     });
-    // Stores present in the DB but unknown to this dashboard version.
+    // Stores with games in the DB that the claimer's store list doesn't include
+    // (removed upstream, or not known to the built-in list), so their history stays visible.
     for (const [id, st] of stats) {
-      if (storeById(id)) continue;
+      if (catalog.stores.some((s) => s.id === id)) continue;
+      const known = storeById(id);
       list.push({
-        id, label: id, url: null, note: 'Unknown store', optIn: false, enabled: null,
-        credentialsConfigured: null, otpConfigured: false, profile: null, profileExists: false,
+        id, label: known?.label ?? id, url: known?.url ?? null,
+        note: known ? 'Not in your claimer version' : 'Unknown store',
+        optIn: false, enabled: null, credentialsConfigured: null, otpConfigured: false,
+        profile: null, profileExists: false, discovered: false,
         counts: st.counts, lastClaim: st.lastClaim, accounts: [...st.accounts],
       });
     }
     return {
       source: cfg.source,
+      catalogSource: cfg.catalogSource,
+      catalogError: this.docker.enabled ? this.discovered.error : null,
       storesExplicit: cfg.storesExplicit,
       unknownStores: cfg.unknownStores,
       notify: cfg.notify,
@@ -159,11 +203,11 @@ export class DashboardService {
     };
   }
 
-  #publicGame(g) {
+  #publicGame(g, catalog) {
     return {
       id: g.id,
       store: g.store,
-      storeLabel: storeById(g.store)?.label ?? g.store,
+      storeLabel: storeById(g.store, catalog)?.label ?? g.store,
       user: this.cfg.maskAccounts ? maskAccount(g.user) : g.user,
       title: g.title,
       url: safeUrl(g.url),
@@ -178,8 +222,8 @@ export class DashboardService {
   }
 
   async gamesQuery(q) {
-    const games = await this.gamesList();
-    let rows = games.rows.map((g) => this.#publicGame(g));
+    const [games, catalog] = await Promise.all([this.gamesList(), this.catalog()]);
+    let rows = games.rows.map((g) => this.#publicGame(g, catalog));
     const facets = {
       stores: countBy(rows, (g) => g.store),
       users: countBy(rows, (g) => g.user),
@@ -215,7 +259,7 @@ export class DashboardService {
   }
 
   async stats(now = new Date()) {
-    const games = await this.gamesList();
+    const [games, catalog] = await Promise.all([this.gamesList(), this.catalog()]);
     const claimed = games.rows.filter((g) => g.group === 'claimed' && g.at);
     const months = [];
     for (let i = 11; i >= 0; i--) {
@@ -228,7 +272,7 @@ export class DashboardService {
       if (m) m.count++;
     }
     const thisMonth = months[months.length - 1].count;
-    const recent = [...claimed].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 10).map((g) => this.#publicGame(g));
+    const recent = [...claimed].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 10).map((g) => this.#publicGame(g, catalog));
     return {
       totals: countBy(games.rows, (g) => g.group),
       claimedTotal: claimed.length,

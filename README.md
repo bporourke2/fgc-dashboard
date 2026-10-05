@@ -62,6 +62,7 @@ This needs a standalone Docker environment, not Swarm: Swarm ignores `container_
 | What | Where it comes from |
 |---|---|
 | Claimed games | `/fgc/data/fgc.db` (table `claimed_games`), opened read-only |
+| Available stores | Read from the running claimer's own `main.py` and `src/core/config.py` (via Docker), so stores added in new FGC-R versions show up automatically. Falls back to a built-in list. |
 | Enabled services and schedule | The claimer container's environment (via Docker), or the mounted `.env` / `data/config.env` |
 | Exact next run | Container start time plus `SCHEDULER_HOURS` (APScheduler counts from start), combined with fixed times |
 | Last run / running now | `🎮 Starting claiming run…` and `✔ Claiming run complete.` lines in the claimer's logs |
@@ -70,11 +71,14 @@ This needs a standalone Docker environment, not Swarm: Swarm ignores `container_
 ### Docker access is optional (but recommended)
 
 FGC-R doesn't write its schedule or run history to disk. Exact timing therefore needs the container's start time and its logs.
-The compose file uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with only `CONTAINERS=1`. That allows read-only `inspect` and `logs` calls. Its port is never published, so only containers in the same stack can reach it.
+The compose file uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with only `CONTAINERS=1`. That allows read-only (`GET`) container endpoints, and blocks starting, stopping and `exec`. The dashboard uses three of them on the claimer container: `inspect` (state, start time, environment), `logs` (run history), and `archive` to read two source files (`/fgc/main.py`, `/fgc/src/core/config.py`) for the store list. The proxy's port is never published, so only containers in the same stack can reach it.
+
+Note that read access to a container includes its environment, and so the claimer's credentials. The dashboard only ever sends the browser *whether* each one is set, but treat the dashboard itself as sensitive: keep it on your LAN or behind auth.
 
 Without Docker access (`DOCKER_HOST` unset):
 
 - Configuration is read from the `.env` file mounted at `/fgc/.env`, or from `data/config.env`.
+- The store list is the dashboard's built-in one (current as of FGC-R v1.11).
 - Fixed-time schedules are still exact. Interval schedules are **estimated** from the latest database activity and marked as such.
 - Run history and "running now" are not available.
 
@@ -124,14 +128,15 @@ Code layout:
 
 - `src/server.js`: HTTP server, routes, basic auth, static files
 - `src/service.js`: combines config, database and Docker data
-- `src/fgcConfig.js` + `src/stores.js`: FGC-R env interpretation and the store catalogue
+- `src/fgcConfig.js`: FGC-R env interpretation (`STORES`, scheduler, credentials)
+- `src/discover.js`: reads the store list from the claimer's source; `src/stores.js` is the built-in fallback and adds labels and links
 - `src/schedule.js`: next-run calculation (time-zone and DST aware, no libraries)
 - `src/db.js`: read-only SQLite (`node:sqlite`)
 - `src/docker.js`: Docker Engine API client and log parsing
 - `public/`: the UI, plain HTML/CSS/JS with no build step
 
-When FGC-R adds a store, add it to `src/stores.js`.
-Stores that appear in the database but not in the catalogue still show up, labelled "Unknown store".
+With Docker access, new FGC-R stores appear on their own, using the claimer's display name and credential variables. Adding them to `src/stores.js` only gives them a nicer label and a link, and makes them show up when Docker access is off.
+Stores that have games in the database but aren't in the claimer's store list still get a tile, so their history stays visible.
 
 ## License
 
